@@ -1,0 +1,49 @@
+body.adm{padding-bottom:0;background:var(--bg)}
+.adm .shell{display:grid;grid-template-columns:240px 1fr;gap:22px;max-width:1360px;margin:0 auto;padding:18px 16px}
+/* sidebar: deep indigo panel */
+.adm .side{position:sticky;top:72px;align-self:start;display:flex;flex-direction:column;gap:2px;padding:14px 10px;border-radius:18px;background:linear-gradient(170deg,#1f2d7a,#111850);color:#fff;box-shadow:0 10px 30px #11185033}
+.adm .side .grp{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#aeb7f5;margin:12px 10px 4px;font-weight:700}
+.adm .side .grp:first-child{margin-top:2px}
+.adm .side a{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;font-weight:600;color:#dfe3ff;text-decoration:none;min-height:44px;transition:background .15s}
+.adm .side a i{font-style:normal;width:28px;height:28px;display:grid;place-items:center;border-radius:9px;background:#ffffff1a;font-size:15px}
+.adm .side a:hover{background:#ffffff14}
+.adm .side a.on{background:var(--gold);color:#241800}.adm .side a.on i{background:#ffffff55}
+.adm .side .n{margin-left:auto;font-size:12px;background:#ffffff26;border-radius:20px;padding:0 8px;font-weight:700}
+.adm .side a.on .n{background:#24180022}
+.adm .main{min-width:0}
+.adm h1.h1{font-size:30px}
+.adm .bar-top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.adm .tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.adm .tools .input{max-width:280px;min-height:42px;padding:8px 14px;border-radius:12px}
+/* KPI cards */
+.adm .kpis{grid-template-columns:repeat(4,1fr);gap:12px}
+.adm .kpi{border-radius:16px;padding:16px;box-shadow:0 2px 0 var(--line);position:relative;overflow:hidden}
+.adm .kpi b{font-size:34px}
+.adm .kpi::after{content:"";position:absolute;right:-18px;top:-18px;width:70px;height:70px;border-radius:50%;background:var(--gold);opacity:.14}
+.adm .kpi.hl{background:linear-gradient(135deg,#1f2d7a,#3446b5);color:#fff;border-color:transparent}.adm .kpi.hl span{color:#cfd5ff}.adm .kpi.hl::after{background:#fff;opacity:.12}
+.adm .two{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+.adm .panel{border-radius:16px}
+.adm td .btn+.btn{margin-left:4px}
+.adm td{vertical-align:top}.adm td.w{min-width:200px;max-width:340px}
+.adm table{border-collapse:separate;border-spacing:0}
+.adm tbody tr:hover{background:var(--gold-t,#fff7e0)}
+.adm .table-wrap{border-radius:16px;overflow:auto;border:1px solid var(--line);background:var(--surface)}
+.adm .clip{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.adm .days{display:flex;align-items:flex-end;gap:8px;height:130px;margin-top:6px}
+.adm .days div{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;height:100%;font-size:12px;color:var(--muted)}
+.adm .days i{display:block;width:100%;background:linear-gradient(180deg,var(--gold),#e08a00);border-radius:6px 6px 0 0;min-height:3px}
+.adm .rowline{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}.adm .rowline:last-child{border:0}
+.adm .gate{max-width:440px;margin:40px auto;padding:0 14px}
+.adm code{background:var(--gold-t);padding:1px 6px;border-radius:5px;word-break:break-all}
+.adm .modal{width:min(680px,100%)}
+.adm .tag{display:inline-block;font-size:12px;padding:1px 9px;border-radius:20px;background:var(--line);font-weight:700}
+.adm .tag.admin{background:var(--gold);color:#241800}.adm .tag.red{background:var(--red-t);color:var(--red)}
+.hide-sm{display:inline}
+@media(max-width:860px){
+ .adm .shell{grid-template-columns:1fr;padding:10px 12px;gap:12px}
+ .adm .side{position:sticky;top:60px;z-index:5;flex-direction:row;overflow:auto;gap:6px;padding:8px;border-radius:14px}
+ .adm .side .grp{display:none}
+ .adm .side a{white-space:nowrap;min-height:40px;padding:6px 12px}.adm .side a i{display:none}
+ .adm .kpis{grid-template-columns:repeat(2,1fr)}.adm .two{grid-template-columns:1fr}
+ .hide-sm{display:none}
+}

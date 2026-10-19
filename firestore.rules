@@ -1,0 +1,149 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function userDoc() { return /databases/$(database)/documents/users/$(request.auth.uid); }
+    function isAdmin() {
+      return signedIn() && exists(userDoc()) && get(userDoc()).data.role == 'admin';
+    }
+    // Blocked users (admin ne block kiya) kuch likh nahi sakte
+    function active() {
+      return signedIn() && !(exists(userDoc()) && get(userDoc()).data.get('blocked', false) == true);
+    }
+
+    // ---------- Users (private). Role/blocked sirf admin badal sakta hai ----------
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.role == 'resident'
+        && !request.resource.data.keys().hasAny(['blocked']);
+      allow update: if signedIn() && (
+        (request.auth.uid == uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','ward','phone','email']))
+        || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // ---------- Public profiles (naam, ward, last seen) — chat me user chunne ke liye ----------
+    match /profiles/{uid} {
+      allow read: if signedIn();
+      allow create, update: if active() && (request.auth.uid == uid || isAdmin())
+        && request.resource.data.keys().hasOnly(['name','ward','lastSeen']);
+      allow delete: if signedIn() && (request.auth.uid == uid || isAdmin());
+    }
+
+    // ---------- Notifications feed: sabko dikhta hai. Admin kuch bhi post kare, user sirf issue/comment/bazaar ----------
+    match /events/{id} {
+      allow read: if true;
+      allow create: if active() && request.resource.data.byUid == request.auth.uid
+        && request.resource.data.title is string && request.resource.data.title.size() <= 200
+        && (isAdmin() || request.resource.data.type in ['issue','comment','bazaar']);
+      allow delete: if isAdmin();
+    }
+
+    // ---------- Complaints: public read. Edit/delete sirf banane wala. Admin sirf progress badal sakta hai, delete nahi ----------
+    match /complaints/{id} {
+      allow read: if true;
+      allow create: if active() && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status == 'Submitted';
+      allow update: if active() && (
+        // koi bhi logged-in: sirf "mujhe bhi yehi samasya" (upvote)
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['upvoters']) ||
+        // admin: sirf progress (status + history + note)
+        (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','history'])) ||
+        // shikayat karne wala: apni shikayat ka content
+        (resource.data.uid == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['description','photos','location','category','urgency','ward','editedAt']))
+      );
+      // Delete: sirf banane wala (admin nahi)
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+
+      match /comments/{cid} {
+        allow read: if true;
+        allow create: if active() && request.resource.data.uid == request.auth.uid
+          && request.resource.data.admin == isAdmin()
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 1000;
+        // Edit: sirf apna comment, sirf 10 minute me
+        allow update: if active() && resource.data.uid == request.auth.uid
+          && request.time < resource.data.createdAt + duration.value(10, 'm')
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text','editedAt'])
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 1000
+          && request.resource.data.editedAt == request.time;
+        // Delete: apna comment kabhi bhi; shikayat ka malik apni shikayat ke neeche; admin moderation
+        allow delete: if signedIn() && (
+          resource.data.uid == request.auth.uid ||
+          get(/databases/$(database)/documents/complaints/$(id)).data.uid == request.auth.uid ||
+          isAdmin());
+      }
+    }
+
+    // ---------- Admin-managed content: public read ----------
+    match /notices/{id}   { allow read: if true; allow write: if isAdmin(); }
+    match /directory/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /mandi/{id}     { allow read: if true; allow write: if isAdmin(); }
+
+    // ---------- Polls: ek user = ek vote ----------
+    match /polls/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+      match /votes/{uid} {
+        allow read: if true;
+        allow create: if active() && request.auth.uid == uid;
+        allow delete: if isAdmin();
+      }
+    }
+
+    // ---------- Gaav Bazaar: listing public, seller ka phone sirf logged-in ko ----------
+    match /bazaar/{id} {
+      allow read: if true;
+      allow create: if active() && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+
+      match /private/{doc} {
+        allow read: if signedIn();
+        allow create, update: if active() && get(/databases/$(database)/documents/bazaar/$(id)).data.uid == request.auth.uid;
+        allow delete: if signedIn() && (get(/databases/$(database)/documents/bazaar/$(id)).data.uid == request.auth.uid || isAdmin());
+      }
+    }
+
+    // ---------- Private chat: sirf dono members padh/likh sakte hain (admin bhi nahi) ----------
+    match /chats/{chatId} {
+      allow read: if signedIn() && request.auth.uid in resource.data.members;
+      allow create: if active()
+        && request.auth.uid in request.resource.data.members
+        && request.resource.data.members.size() == 2
+        && request.resource.data.members[0] != request.resource.data.members[1]
+        && chatId == request.resource.data.members[0] + '_' + request.resource.data.members[1];
+      allow update: if signedIn() && request.auth.uid in resource.data.members
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastText','lastAt','lastFrom','lastId','reads']);
+
+      match /messages/{mid} {
+        allow read: if signedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.members;
+
+        allow create: if active()
+          && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.members
+          && request.resource.data.keys().hasOnly(['from','text','createdAt'])
+          && request.resource.data.from == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 2000
+          && request.resource.data.createdAt == request.time;
+
+        // Edit: sirf apna message, sirf pehle 10 minute me
+        allow update: if active()
+          && resource.data.from == request.auth.uid
+          && request.time < resource.data.createdAt + duration.value(10, 'm')
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text','editedAt'])
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 2000
+          && request.resource.data.editedAt == request.time;
+
+        // Delete: apna message kabhi bhi
+        allow delete: if signedIn() && resource.data.from == request.auth.uid;
+      }
+    }
+  }
+}
